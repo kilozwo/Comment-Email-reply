@@ -1,6 +1,6 @@
 === Comment Email Reply ===
 Contributors: kilozwo
-Donate link: http://kilozwo.de/donate
+Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=W487VEEQCRQ42
 Tags: Comments, Reply, Notification, Email,
 Requires at least: 3.0.1
 Tested up to: 3.7
@@ -20,8 +20,6 @@ Simply notifies comment-author via email if someone replies to his comment. Zero
 1. Download the plugin-files from the WordPress Plugin Directory.
 2. Upload the files to your plugins directory on your Server.
 3. Activate the plugin in your admin-backend.
-
-== Screenshots ==
 
 
 == Changelog ==
