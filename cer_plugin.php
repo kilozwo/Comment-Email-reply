@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Comment Email reply
- * Plugin URI:  http://kilozwo.de/cer
+ * Plugin Name: Comment Email Reply
+ * Plugin URI:  http://kilozwo.de/wordpress-comment-email-reply-plugin
  * Description: Simply notifies comment-author via email if someone replies to his comment. Zero Configuration. Available in English and German.
  * Version:     1.0
  * Author:      Jan Eichhorn
