@@ -37,7 +37,7 @@ add_action('wp_set_comment_status','cer_comment_status_changed',99,2);
 
 function cer_comment_status_changed($comment_id, $comment_status) {
     $comment_object = get_comment( $comment_id );
-    if ($comment_object->comment_approved == 1) {
+    if ($comment_status == 'approve') {
         cer_comment_notification($comment_object->comment_ID, $comment_object);        
     } 
 }
