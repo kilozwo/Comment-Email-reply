@@ -26,7 +26,7 @@ function cer_comment_notification($comment_id, $comment_object) {
 
         $headers  = 'MIME-Version: 1.0' . "\r\n";
         $headers .= 'Content-type: text/html; charset=UTF-8' . "\r\n";
-        $headers .= 'From: '.get_option('blogname').'<'.get_option('admin_email').'>' . "\r\n";
+        $headers .= 'From: '.get_option('blogname').' <'.get_option('admin_email').'>' . "\r\n";
 
         wp_mail($comment_parent->comment_author_email,'['.get_option('blogname').'] '.__('New reply to your Comment','cer_plugin'),$mailcontent,$headers);
     }
