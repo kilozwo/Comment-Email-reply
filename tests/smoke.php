@@ -11,6 +11,7 @@ $cer_comments = array();
 $cer_meta = array();
 $cer_mails = array();
 $cer_mail_result = true;
+$cer_actions = array();
 
 class WP_Comment {
 	public $comment_ID;
@@ -29,7 +30,11 @@ class WP_Comment {
 	}
 }
 
-function add_action() {}
+function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+	global $cer_actions;
+
+	$cer_actions[] = compact( 'hook', 'callback', 'priority', 'accepted_args' );
+}
 function register_meta() {}
 function current_user_can() {
 	return true;
@@ -183,6 +188,45 @@ function cer_comment( $id, array $overrides = array() ) {
 	return $comment;
 }
 
+$expected_hooks = array(
+	'init',
+	'comment_form_after_fields',
+	'comment_form_logged_in_after',
+	'comment_post',
+	'admin_post_cer_unsubscribe',
+	'admin_post_nopriv_cer_unsubscribe',
+	'wp_insert_comment',
+	'transition_comment_status',
+);
+$registered_hooks = array_column( $cer_actions, 'hook' );
+
+cer_assert( $expected_hooks === $registered_hooks, 'Components should register only the expected hooks in a deterministic order.' );
+cer_assert( array( 'CER_Consent', 'register_meta' ) === $cer_actions[0]['callback'], 'The consent component should own metadata registration.' );
+cer_assert( array( 'CER_Unsubscribe', 'handle' ) === $cer_actions[4]['callback'], 'The unsubscribe component should own the public endpoint.' );
+cer_assert( array( 'CER_Notification', 'handle_inserted_comment' ) === $cer_actions[6]['callback'], 'The notification component should own reply insertion.' );
+
+$consenting_comment = cer_comment(
+	8,
+	array(
+		'comment_author_email' => 'subscriber@example.test',
+	)
+);
+$_POST = array( 'cer_notify_replies' => '1' );
+CER_Consent::save(
+	$consenting_comment->comment_ID,
+	'1',
+	array( 'comment_author_email' => $consenting_comment->comment_author_email )
+);
+cer_assert( '1' === get_comment_meta( 8, CER_Consent::META_OPT_IN ), 'Checked consent with a valid email should be stored.' );
+
+$_POST = array();
+CER_Consent::save(
+	$consenting_comment->comment_ID,
+	'1',
+	array( 'comment_author_email' => $consenting_comment->comment_author_email )
+);
+cer_assert( '' === get_comment_meta( 8, CER_Consent::META_OPT_IN ), 'Unchecked consent should remove the consent flag.' );
+
 $parent = cer_comment(
 	1,
 	array(
@@ -190,7 +234,7 @@ $parent = cer_comment(
 		'comment_author_email' => 'parent@example.test',
 	)
 );
-update_comment_meta( 1, CER_Plugin::META_OPT_IN, '1' );
+update_comment_meta( 1, CER_Consent::META_OPT_IN, '1' );
 
 $reply = cer_comment(
 	2,
@@ -200,9 +244,9 @@ $reply = cer_comment(
 	)
 );
 
-cer_assert( CER_Plugin::maybe_send_notification( $reply ), 'An opted-in parent should receive a notification.' );
+cer_assert( CER_Notification::maybe_send( $reply ), 'An opted-in parent should receive a notification.' );
 cer_assert( 1 === count( $cer_mails ), 'Exactly one message should be sent.' );
-cer_assert( false === CER_Plugin::maybe_send_notification( $reply ), 'The delivery lock should prevent duplicates.' );
+cer_assert( false === CER_Notification::maybe_send( $reply ), 'The delivery lock should prevent duplicates.' );
 cer_assert( 1 === count( $cer_mails ), 'A duplicate hook must not send a second message.' );
 cer_assert( false === strpos( $cer_mails[0]['message'], '<script>' ), 'Reply HTML must not reach the email.' );
 cer_assert( false !== strpos( $cer_mails[0]['message'], '#comment-2' ), 'The message must link to the reply.' );
@@ -216,7 +260,7 @@ $self_reply = cer_comment(
 		'comment_author_email' => 'PARENT@example.test',
 	)
 );
-cer_assert( false === CER_Plugin::maybe_send_notification( $self_reply ), 'Matching email addresses should not receive self-notifications.' );
+cer_assert( false === CER_Notification::maybe_send( $self_reply ), 'Matching email addresses should not receive self-notifications.' );
 
 $unapproved_reply = cer_comment(
 	4,
@@ -225,7 +269,7 @@ $unapproved_reply = cer_comment(
 		'comment_approved' => '0',
 	)
 );
-cer_assert( false === CER_Plugin::maybe_send_notification( $unapproved_reply ), 'Unapproved replies must not generate mail.' );
+cer_assert( false === CER_Notification::maybe_send( $unapproved_reply ), 'Unapproved replies must not generate mail.' );
 
 $parent_without_consent = cer_comment( 5 );
 $reply_without_consent = cer_comment(
@@ -234,7 +278,7 @@ $reply_without_consent = cer_comment(
 		'comment_parent' => $parent_without_consent->comment_ID,
 	)
 );
-cer_assert( false === CER_Plugin::maybe_send_notification( $reply_without_consent ), 'Missing consent must prevent notification.' );
+cer_assert( false === CER_Notification::maybe_send( $reply_without_consent ), 'Missing consent must prevent notification.' );
 
 $retry_reply = cer_comment(
 	7,
@@ -243,11 +287,11 @@ $retry_reply = cer_comment(
 	)
 );
 $cer_mail_result = false;
-cer_assert( false === CER_Plugin::maybe_send_notification( $retry_reply ), 'A failed mail delivery should report failure.' );
-cer_assert( '' === get_comment_meta( 7, CER_Plugin::META_SENT ), 'A failed delivery must release the lock.' );
+cer_assert( false === CER_Notification::maybe_send( $retry_reply ), 'A failed mail delivery should report failure.' );
+cer_assert( '' === get_comment_meta( 7, CER_Notification::META_SENT ), 'A failed delivery must release the lock.' );
 
 $cer_mail_result = true;
-cer_assert( CER_Plugin::maybe_send_notification( $retry_reply ), 'A later attempt should be able to retry.' );
+cer_assert( CER_Notification::maybe_send( $retry_reply ), 'A later attempt should be able to retry.' );
 
 $unsubscribe_url = '';
 preg_match( '#https://example\.test/wp-admin/admin-post\.php\?[^\s]+#', $cer_mails[0]['message'], $unsubscribe_match );
@@ -259,12 +303,12 @@ $_POST = array();
 $_SERVER['REQUEST_METHOD'] = 'GET';
 
 try {
-	CER_Plugin::handle_unsubscribe();
+	CER_Unsubscribe::handle();
 } catch ( RuntimeException $error ) {
 	cer_assert( false !== strpos( $error->getMessage(), '<form' ), 'A GET request should display a confirmation form.' );
 }
 
-cer_assert( '1' === get_comment_meta( 1, CER_Plugin::META_OPT_IN ), 'Following the email link alone must not unsubscribe.' );
+cer_assert( '1' === get_comment_meta( 1, CER_Consent::META_OPT_IN ), 'Following the email link alone must not unsubscribe.' );
 
 $_GET = array();
 $_POST = array(
@@ -276,11 +320,11 @@ $_POST = array(
 $_SERVER['REQUEST_METHOD'] = 'POST';
 
 try {
-	CER_Plugin::handle_unsubscribe();
+	CER_Unsubscribe::handle();
 } catch ( RuntimeException $error ) {
 	cer_assert( false !== strpos( $error->getMessage(), 'disabled' ), 'A confirmed POST should report success.' );
 }
 
-cer_assert( '' === get_comment_meta( 1, CER_Plugin::META_OPT_IN ), 'A confirmed unsubscribe should remove consent.' );
+cer_assert( '' === get_comment_meta( 1, CER_Consent::META_OPT_IN ), 'A confirmed unsubscribe should remove consent.' );
 
 echo "All Comment Email Reply smoke tests passed.\n";

@@ -80,6 +80,7 @@ Notifications now require explicit per-comment opt-in. Existing comments will no
 * Removed the custom From header and now relies on WordPress mail configuration.
 * Removed obsolete bundled translations that used the retired 1.x text domain.
 * Added privacy, security and upgrade documentation.
+* Split consent, notification delivery and unsubscribe handling into focused runtime components.
 
 = 1.0.4 =
 

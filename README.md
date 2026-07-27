@@ -44,10 +44,17 @@ php tests/smoke.php
 
 ## Repository layout
 
-- `trunk/` contains the current WordPress.org plugin source.
+- `trunk/cer_plugin.php` is the single plugin bootstrap.
+- `trunk/includes/class-cer-consent.php` owns opt-in rendering and storage.
+- `trunk/includes/class-cer-notification.php` owns reply validation and email delivery.
+- `trunk/includes/class-cer-unsubscribe.php` owns signed unsubscribe links and confirmation.
+- `trunk/uninstall.php` removes plugin-specific comment metadata.
+- `tests/smoke.php` covers the public behaviour without a separate test framework.
 - `tags/` contains historical 1.x releases and is not loaded by the current plugin.
 
 The installable plugin directory should contain the contents of `trunk/`.
+Runtime code is split only by responsibility. The `tags/` directory is retained
+only as immutable release history.
 
 ## Extension hooks
 
